@@ -57,23 +57,25 @@ const getWorkerModule = ( options: Options, methods: string[] ): string => {
 
 /* WORKTANK LOADER */
 
-const loader = ( webpackSource: string , metadata: { file: string } ): string => {
+function loader (): string {
 
-  const source = fs.readFileSync ( metadata.file, 'utf8' );
+  const filePath = this.resourcePath;
 
-  const bundle = getBundle ( metadata.file );
+  const source = fs.readFileSync ( filePath, 'utf8' );
 
-  if ( !bundle.outputFiles || bundle.outputFiles.length < 1 ) throw new Error ( `WorkTank Loader: unsupported worker file "${metadata.file}", bundling failed` );
+  const bundle = getBundle ( filePath );
 
-  if ( bundle.outputFiles.length > 1 ) throw new Error ( `WorkTank Loader: unsupported worker file "${metadata.file}", bundling generated multiple output files` );
+  if ( !bundle.outputFiles || bundle.outputFiles.length < 1 ) throw new Error ( `WorkTank Loader: unsupported worker file "${filePath}", bundling failed` );
+
+  if ( bundle.outputFiles.length > 1 ) throw new Error ( `WorkTank Loader: unsupported worker file "${filePath}", bundling generated multiple output files` );
 
   const dist = bundle.outputFiles[0].text;
 
   const methods = getMethods ( dist );
 
-  if ( !methods.length ) throw new Error ( `WorkTank Loader: no exported functions found in worker file "${metadata.file}"` );
+  if ( !methods.length ) throw new Error ( `WorkTank Loader: no exported functions found in worker file "${filePath}"` );
 
-  if ( methods.includes ( 'pool' ) ) throw new Error ( `WorkTank Loader: worker file "${metadata.file}" exports function named "pool", you have to rename that, an export named "pool" will be injected by the loader automatically` );
+  if ( methods.includes ( 'pool' ) ) throw new Error ( `WorkTank Loader: worker file "${filePath}" exports function named "pool", you have to rename that, an export named "pool" will be injected by the loader automatically` );
 
   const workerOptions = getWorkerOptions ( dist, source ),
         workerModule = getWorkerModule ( workerOptions, methods );
