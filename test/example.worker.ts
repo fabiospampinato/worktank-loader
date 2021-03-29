@@ -17,3 +17,4 @@ const pool = {} as { terminate: Function }; // Dummy export to ~tell TypeScript 
 /* EXPORT */
 
 export {sum, multiply, platform, noop, pool};
+export default sum;
