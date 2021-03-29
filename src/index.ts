@@ -34,11 +34,12 @@ const getMethods = ( dist: string ): string[] => {
 
 };
 
-const getWorkerOptions = ( dist: string, source: string ): Options => {
+const getWorkerOptions = ( filePath: string, dist: string, source: string ): Options => {
 
   const methods = `var module={};var exports=module.exports={};${dist};return exports;`,
+        name = source.match ( /\/\/.*?WORKTANK_NAME.*?=.*?(\S+)/ )?.[1] || path.basename ( filePath ),
         size = Number ( source.match ( /\/\/.*?WORKTANK_SIZE.*?=.*?(\d+)/ )?.[1] || 1 ),
-        options = {size, methods};
+        options = {name, size, methods};
 
   return options;
 
@@ -77,7 +78,7 @@ function loader (): string {
 
   if ( methods.includes ( 'pool' ) ) throw new Error ( `WorkTank Loader: worker file "${filePath}" exports function named "pool", you have to rename that, an export named "pool" will be injected by the loader automatically` );
 
-  const workerOptions = getWorkerOptions ( dist, source ),
+  const workerOptions = getWorkerOptions ( filePath, dist, source ),
         workerModule = getWorkerModule ( workerOptions, methods );
 
   return workerModule;

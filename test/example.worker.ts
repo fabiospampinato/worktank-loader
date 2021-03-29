@@ -1,4 +1,5 @@
 
+// WORKTANK_NAME = MyExampleWorker // Setting a custom name
 // WORKTANK_SIZE = 3 // Spawining up-to 3 workers, if needed
 
 /* IMPORT */

@@ -19,6 +19,8 @@ First of all functions to be executed in the worker pool must be defined in a fi
 
 // You can set a size different than 1 for the worker pool that will be created for this worker file by using a special comment that looks like the following one
 // WORKTANK_SIZE = 3
+// You can set a name different than the worker file's name for the worker pool that will be created for this worker file by using a special comment that looks like the following one
+// WORKTANK_NAME = MyExampleWorker
 
 // Dependencies will be handled automatically
 import MyMath from 'some-math-module';
