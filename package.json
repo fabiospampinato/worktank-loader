@@ -1,7 +1,7 @@
 {
   "name": "worktank-loader",
   "description": "WebPack plugin for WorkTank which enables you to execute whole files in a worker pool, transparently.",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
