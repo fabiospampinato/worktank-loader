@@ -1,3 +1,5 @@
+> Note: this loader is deprecated, I've given up on porting it to ESM because WebPack is awful, this loader only works with v1.x.x of worktank.
+
 # WorkTank Loader
 
 WebPack plugin for [WorkTank](https://github.com/fabiospampinato/worktank) which enables you to execute whole files in a worker pool, transparently.
