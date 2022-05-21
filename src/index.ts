@@ -2,21 +2,19 @@
 /* IMPORT */
 
 import type {Options} from 'worktank/dist/types';
-import esbuild from 'esbuild';
-import findUpJson from 'find-up-json';
-import fs from 'node:fs';
-import path from 'node:path';
+import * as esbuild from 'esbuild';
+import * as findUp from 'find-up';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 /* HELPERS */
-
-// = /[a-zA-Z$_][a-zA-Z0-9$_]*/;
 
 const getBundle = ( filePath: string ): esbuild.BuildResult => {
 
   return esbuild.buildSync ({
     absWorkingDir: path.dirname ( filePath ),
     entryPoints: [filePath],
-    tsconfig: findUpJson ( 'tsconfig.json' )?.path,
+    tsconfig: findUp.sync ( 'tsconfig.json' ),
     format: 'esm',
     platform: 'node',
     target: 'es2018',
@@ -27,42 +25,66 @@ const getBundle = ( filePath: string ): esbuild.BuildResult => {
 
 };
 
-const getExportsNames = ( dist: string ): string[] => {
+const getWorkerMethods = ( dist: string ): [string, string][] => {
 
-  const exportsRe = .
+  const names = new Map<string, string> ();
+  const lineRe = /(?:^|;)\s*export\s*{\s*([^{}]*?)\s*}/gm;
+  const identifierRe = /([a-zA-Z$_][a-zA-Z0-9$_]*)(?:\s+as\s+([a-zA-Z$_][a-zA-Z0-9$_]*))?/gm;
+
+  const lines = Array.from ( dist.matchAll ( lineRe ) ).map ( match => match[1] );
+
+  for ( const line of lines ) {
+
+    const identifiers = Array.from ( line.matchAll ( identifierRe ) ).map ( match => [match[2] || match[1], match[1] || match[2]] );
+
+    for ( const [identifierDist, identifierSrc] of identifiers ) {
+
+      if ( identifierDist === 'pool' ) continue;
+
+      names.set ( identifierDist, identifierSrc );
+
+    }
+
+  }
+
+  return Array.from ( names.entries () );
 
 };
 
-const rewriteExports = ( dist: string ): string => {
+const getWorkerOptions = ( filePath: string, dist: string, source: string, methods: [string, string][] ): Options => {
 
-  const exports = new Function ( 'require', 'exports', 'module', `${dist};return exports;` )( require, {}, {} );
-  const methods = Object.keys ( exports ).filter ( method => typeof exports[method] === 'function' );
-
-  return methods;
-
-};
-
-const getWorkerOptions = ( filePath: string, dist: string, source: string ): Options => {
-
-  const methods = `var module={};var exports=module.exports={};${dist};return exports;`;
+  const workerBackendModule = getWorkerBackendModule ( dist, methods );
   const name = source.match ( /\/\/.*?WORKTANK_NAME.*?=.*?(\S+)/ )?.[1] || path.basename ( filePath );
   const size = Number ( source.match ( /\/\/.*?WORKTANK_SIZE.*?=.*?(\d+)/ )?.[1] || 1 );
-  const options = {name, size, methods};
 
-  return options;
+  return {name, size, methods: workerBackendModule};
 
 };
 
-const getWorkerModule = ( options: Options, methods: string[] ): string => {
+const getWorkerBackendModule = ( dist: string, methods: [string, string][] ): string => {
+
+  const unsupportedRe = /(?:^|;)\s*export\s*(?!\{)/gm;
+  const unsupported = Array.from ( dist.matchAll ( unsupportedRe ) );
+
+  if ( unsupported.length ) throw new Error ( 'WorkTank Loader: unsupported export detected, only simple "export {...}" are supported' );
+
+  const supportedRe = /(?:^|;)\s*export\s*{[^{}]*}/gm;
+  const supported = dist.replaceAll ( supportedRe, '' );
+
+  const registrations = methods.map ( ([ dist, src ]) => `WorkTankWorkerBackend.register ( '${dist}', ${src} );` ).join ( '\n' );
+
+  return `${supported}${registrations}`;
+
+};
+
+const getWorkerFrontendModule = ( options: Options, methods: [string, string][] ): string => {
 
   return [
-    `import {createRequire} from 'node:module';`,
-    `var require = createRequire ( 'import.meta.url );`,
-    `var Pool=require('worktank');`, // Importing WorkTank
-    `var pool=new Pool(${JSON.stringify ( options )});`, // Creating a pool
-    ...methods.map ( method => `module.exports['${method}']=function(){return pool.exec('${method}',Array.prototype.slice.call(arguments))};` ), // Exporting wrapped methods
-    `module.exports.pool=pool;` // Exporting pool
-  ].join ( '' );
+    `import Pool from 'worktank';`, // Importing WorkTank
+    `const pool = new Pool ( ${JSON.stringify ( options )} );`, // Creating a pool
+    ...methods.map ( ([ dist ]) => `export const ${dist} = function(){return pool.exec('${dist}',Array.prototype.slice.call(arguments))};` ), // Exporting wrapped methods
+    `export {pool};` // Exporting pool
+  ].join ( '\n' );
 
 };
 
@@ -82,13 +104,11 @@ function loader ( this: { resourcePath: string } ): string {
 
   const dist = bundle.outputFiles[0].text;
 
-  const exports = getExportsNames ( dist );
+  const workerMethods = getWorkerMethods ( dist );
+  const workerOptions = getWorkerOptions ( filePath, dist, source, workerMethods );
+  const workerFrontendModule = getWorkerFrontendModule ( workerOptions, workerMethods );
 
-
-  const workerOptions = getWorkerOptions ( filePath, dist, source );
-  const workerModule = getWorkerModule ( workerOptions, bundle );
-
-  return workerModule;
+  return workerFrontendModule;
 
 };
 

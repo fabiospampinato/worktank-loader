@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "name": "test",
+  "type": "module",
+  "dependencies": {
+    "mime2ext": "^2.0.0",
+    "worktank": "^2.2.0"
+  }
+}

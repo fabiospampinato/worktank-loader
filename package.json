@@ -3,7 +3,6 @@
   "repository": "github:fabiospampinato/worktank-loader",
   "description": "WebPack plugin for WorkTank which enables you to execute whole files in a worker pool, transparently.",
   "version": "1.2.0",
-  "type": "module",
   "main": "dist/index.js",
   "exports": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,15 +20,13 @@
   ],
   "dependencies": {
     "esbuild": "^0.14.39",
-    "find-up-json": "^2.0.0",
+    "find-up": "^5.0.0",
     "worktank": "^2.0.0"
   },
   "peerDependencies": {
     "webpack": ">=5.0.0"
   },
   "devDependencies": {
-    "mime2ext": "^2.0.0",
-    "noop-tag": "^2.0.0",
     "ts-loader": "^9.3.0",
     "tsex": "^1.1.2",
     "typescript": "^4.6.4",
