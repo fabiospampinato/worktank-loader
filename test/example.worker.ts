@@ -4,10 +4,10 @@
 
 /* IMPORT */
 
-import * as os from 'os';
-import noop from 'noop3';
+import os from 'node:os';
+import mime2ext from 'mime2ext';
 
-/* WORKER METHODS */
+/* MAIN */
 
 const sum = async ( a: number, b: number ) => a + b;
 const multiply = async ( a: number, b: number ): Promise<number> => a * b;
@@ -16,5 +16,5 @@ const pool = {} as { terminate: Function }; // Dummy export to ~tell TypeScript 
 
 /* EXPORT */
 
-export {sum, multiply, platform, noop, pool};
+export {sum, multiply, platform, mime2ext, pool};
 export default sum;

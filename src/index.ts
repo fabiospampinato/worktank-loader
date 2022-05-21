@@ -1,23 +1,25 @@
 
 /* IMPORT */
 
-import {Options} from 'worktank/dist/types';
-import * as esbuild from 'esbuild';
-import * as findUp from 'find-up';
-import * as fs from 'fs';
-import * as path from 'path';
+import type {Options} from 'worktank/dist/types';
+import esbuild from 'esbuild';
+import findUpJson from 'find-up-json';
+import fs from 'node:fs';
+import path from 'node:path';
 
 /* HELPERS */
+
+// = /[a-zA-Z$_][a-zA-Z0-9$_]*/;
 
 const getBundle = ( filePath: string ): esbuild.BuildResult => {
 
   return esbuild.buildSync ({
     absWorkingDir: path.dirname ( filePath ),
     entryPoints: [filePath],
-    tsconfig: findUp.sync ( 'tsconfig.json' ),
-    format: 'cjs',
+    tsconfig: findUpJson ( 'tsconfig.json' )?.path,
+    format: 'esm',
     platform: 'node',
-    target: 'es2017',
+    target: 'es2018',
     bundle: true,
     minify: true,
     write: false
@@ -25,10 +27,16 @@ const getBundle = ( filePath: string ): esbuild.BuildResult => {
 
 };
 
-const getMethods = ( dist: string ): string[] => {
+const getExportsNames = ( dist: string ): string[] => {
 
-  const exports = new Function ( 'require', 'exports', 'module', `${dist};return exports;` )( require, {}, {} ),
-        methods = Object.keys ( exports ).filter ( method => typeof exports[method] === 'function' );
+  const exportsRe = .
+
+};
+
+const rewriteExports = ( dist: string ): string => {
+
+  const exports = new Function ( 'require', 'exports', 'module', `${dist};return exports;` )( require, {}, {} );
+  const methods = Object.keys ( exports ).filter ( method => typeof exports[method] === 'function' );
 
   return methods;
 
@@ -36,10 +44,10 @@ const getMethods = ( dist: string ): string[] => {
 
 const getWorkerOptions = ( filePath: string, dist: string, source: string ): Options => {
 
-  const methods = `var module={};var exports=module.exports={};${dist};return exports;`,
-        name = source.match ( /\/\/.*?WORKTANK_NAME.*?=.*?(\S+)/ )?.[1] || path.basename ( filePath ),
-        size = Number ( source.match ( /\/\/.*?WORKTANK_SIZE.*?=.*?(\d+)/ )?.[1] || 1 ),
-        options = {name, size, methods};
+  const methods = `var module={};var exports=module.exports={};${dist};return exports;`;
+  const name = source.match ( /\/\/.*?WORKTANK_NAME.*?=.*?(\S+)/ )?.[1] || path.basename ( filePath );
+  const size = Number ( source.match ( /\/\/.*?WORKTANK_SIZE.*?=.*?(\d+)/ )?.[1] || 1 );
+  const options = {name, size, methods};
 
   return options;
 
@@ -48,6 +56,8 @@ const getWorkerOptions = ( filePath: string, dist: string, source: string ): Opt
 const getWorkerModule = ( options: Options, methods: string[] ): string => {
 
   return [
+    `import {createRequire} from 'node:module';`,
+    `var require = createRequire ( 'import.meta.url );`,
     `var Pool=require('worktank');`, // Importing WorkTank
     `var pool=new Pool(${JSON.stringify ( options )});`, // Creating a pool
     ...methods.map ( method => `module.exports['${method}']=function(){return pool.exec('${method}',Array.prototype.slice.call(arguments))};` ), // Exporting wrapped methods
@@ -56,9 +66,9 @@ const getWorkerModule = ( options: Options, methods: string[] ): string => {
 
 };
 
-/* WORKTANK LOADER */
+/* MAIN */
 
-function loader (): string {
+function loader ( this: { resourcePath: string } ): string {
 
   const filePath = this.resourcePath;
 
@@ -72,14 +82,11 @@ function loader (): string {
 
   const dist = bundle.outputFiles[0].text;
 
-  const methods = getMethods ( dist );
+  const exports = getExportsNames ( dist );
 
-  if ( !methods.length ) throw new Error ( `WorkTank Loader: no exported functions found in worker file "${filePath}"` );
 
-  if ( methods.includes ( 'pool' ) ) throw new Error ( `WorkTank Loader: worker file "${filePath}" exports function named "pool", you have to rename that, an export named "pool" will be injected by the loader automatically` );
-
-  const workerOptions = getWorkerOptions ( filePath, dist, source ),
-        workerModule = getWorkerModule ( workerOptions, methods );
+  const workerOptions = getWorkerOptions ( filePath, dist, source );
+  const workerModule = getWorkerModule ( workerOptions, bundle );
 
   return workerModule;
 

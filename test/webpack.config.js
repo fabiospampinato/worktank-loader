@@ -1,9 +1,9 @@
 
 /* IMPORT */
 
-const path = require ( 'path' );
+import path from 'node:path';
 
-/* CONFIG */
+/* MAIN */
 
 const config = {
   mode: 'production',
@@ -23,7 +23,7 @@ const config = {
       },
       {
         test: /\.ts$/,
-        use: 'awesome-typescript-loader'
+        use: 'ts-loader'
       }
     ]
   }
@@ -31,4 +31,4 @@ const config = {
 
 /* EXPORT */
 
-module.exports = config;
+export default config;
